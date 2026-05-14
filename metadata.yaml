@@ -1,5 +1,7 @@
 homepage: "https://www.trustarc.com"
 documentation: "https://trustarchelp.zendesk.com/hc/en-us/sections/37935816148627-Google-Consent-Mode-Implementation"
 versions:
+  - sha: a4c1060f26df0734399b8ae0ed7dcabd64a55483
+    changeNotes: update name to include "- BETA"
   - sha: df4c9b96e61d7dd8db3743a6bf59ee7cc07633c5
     changeNotes: Initial release
