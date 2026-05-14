@@ -464,6 +464,7 @@ function applyDefaults() {
 }
 
 function applyGtagSetFlags() {
+  gtagSet({'developer_id.dNTIxZG': true});
   if (data.adsDataRedaction) {
     gtagSet({ 'ads_data_redaction': true });
   }
