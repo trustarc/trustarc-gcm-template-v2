@@ -13,7 +13,7 @@ ___INFO___
   "id": "cvt_temp_public_id",
   "version": 0,
   "securityGroups": [],
-  "displayName": "TrustArc Google Consent Mode v2",
+  "displayName": "TrustArc Google Consent Mode v2 - BETA",
   "categories": [
     "UTILITY",
     "ANALYTICS",
