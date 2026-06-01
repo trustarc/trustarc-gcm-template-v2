@@ -1,6 +1,8 @@
 homepage: "https://www.trustarc.com"
 documentation: "https://trustarchelp.zendesk.com/hc/en-us/sections/37935816148627-Google-Consent-Mode-Implementation"
 versions:
+  - sha: 1fd1fd909b5b2f91ac2eae82f3947559efe3a008
+    changeNotes: add missing developer id write permission
   - sha: bf0cd3e1ef9d8e1b1bc88b4cbfd657491c81fe7d
     changeNotes: update brand id
   - sha: 93d8ec52e04e5d479e9b3b33998cd51c3d6c3b15
