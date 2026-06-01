@@ -417,6 +417,13 @@ data.gtmOnSuccess();
 
 // ---------------------------------------------------------------------------
 
+function debugLog(message, extra) {
+  if (debug) {
+    message = "[TrustArc CMv2]: " + message;
+    log(message, extra || '');
+  }
+}
+
 function applyDefaults() {
   const waitForUpdate = makeNumber(data.waitForUpdate) || DEFAULT_WAIT_FOR_UPDATE;
 
@@ -433,7 +440,7 @@ function applyDefaults() {
     'security_storage': data.globalSecurityStorage || 'granted'
   };
 
-  if (debug) log('TrustArc CMv2: global default', globalConsent);
+  debugLog('global default', globalConsent);
   setDefaultConsentState(globalConsent);
 
   // 2. Regional overrides — each row sets one signal for one region scope.
@@ -457,64 +464,29 @@ function applyDefaults() {
       consent.region = cleaned;
     }
 
-    if (debug) log('TrustArc CMv2: regional override', consent);
+    debugLog('regional override', consent);
     setDefaultConsentState(consent);
   }
   return true;
 }
 
 function applyGtagSetFlags() {
-  gtagSet({'developer_id.dNTIxZG': true});
+  const flags = {
+    'developer_id.dNTIxZG': true
+  };
+
   if (data.adsDataRedaction) {
-    gtagSet({ 'ads_data_redaction': true });
+    flags.ads_data_redaction = true;
   }
+
   if (data.urlPassthrough) {
-    gtagSet({ 'url_passthrough': true });
+    flags.url_passthrough = true;
   }
+
+  gtagSet(flags);
 }
 
-function applyConsentFromCookie() {
-  var cookieValues = getCookieValues('cmapi_cookie_privacy');
-  if (!cookieValues || cookieValues.length === 0) return;
-
-  var cookieVal = cookieValues[0];
-  if (debug) log('TrustArc CMv2: found cmapi_cookie_privacy cookie, applying early update:', cookieVal);
-
-  var rows = data.categoryMapping || [];
-  var update = {};
-  var hasUpdate = false;
-
-  for (var i = 0; i < rows.length; i++) {
-    var row = rows[i];
-    var signal = row.signal;
-    var categoryId = row.categoryId;
-
-    if (!signal || !VALID_SIGNALS[signal]) continue;
-    if (!categoryId) continue;
-
-    if (categoryId === 'always') {
-      update[signal] = 'granted';
-      hasUpdate = true;
-      continue;
-    }
-
-    var target = makeString(categoryId);
-    if (cookieVal.indexOf(target) !== -1) {
-      update[signal] = 'granted';
-    } else {
-      update[signal] = 'denied';
-    }
-    hasUpdate = true;
-  }
-
-  if (hasUpdate) {
-    if (debug) log('TrustArc CMv2: early updateConsentState from cookie', update);
-    updateConsentState(update);
-  }
-}
-
-function applyConsentUpdate() {
-  const consentModel = copyFromDataLayer('consentModel');
+function buildConsentUpdate(getCategoryDecision) {
   const rows = data.categoryMapping || [];
   const update = {};
   let hasUpdate = false;
@@ -533,25 +505,49 @@ function applyConsentUpdate() {
       continue;
     }
 
-    const categoryValue = copyFromDataLayer('consent.ta_category_' + categoryId);
+    const decision = getCategoryDecision(categoryId);
 
-    if (categoryValue === true) {
+    if (decision === true) {
       update[signal] = 'granted';
       hasUpdate = true;
-    } else if (categoryValue === false) {
+    } else if (decision === false) {
       update[signal] = 'denied';
       hasUpdate = true;
     }
     // undefined → no user decision yet; skip this signal and let the
-    // default consent state stand until the user makes a choice.
+    // default consent state stand until the user makes a choice
+    // only for applyConsentUpdate
   }
 
-  if (hasUpdate) {
-    if (debug) log('TrustArc CMv2: updateConsentState', update);
+  return hasUpdate ? update : null;
+}
+
+function applyConsentFromCookie() {
+  const cookieValues = getCookieValues('cmapi_cookie_privacy');
+  if (!cookieValues || !cookieValues.length) return;
+
+  const cookieVal = cookieValues[0];
+
+  const update = buildConsentUpdate(function(categoryId) {
+    return cookieVal.indexOf(makeString(categoryId)) !== -1;
+  });
+
+  if (update) {
+    debugLog('early updateConsentState from cookie', update);
     updateConsentState(update);
   }
 }
 
+function applyConsentUpdate() {
+  const update = buildConsentUpdate(function(categoryId) {
+    return copyFromDataLayer('consent.ta_category_' + categoryId);
+  });
+
+  if (update) {
+    debugLog('updateConsentState', update);
+    updateConsentState(update);
+  }
+}
 
 ___WEB_PERMISSIONS___
 
