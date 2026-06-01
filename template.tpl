@@ -10,9 +10,8 @@ ___INFO___
 
 {
   "type": "TAG",
-  "id": "cvt_temp_public_id",
+  "id": "cvt_573P8",
   "version": 0,
-  "securityGroups": [],
   "displayName": "TrustArc Google Consent Mode v2 - BETA",
   "categories": [
     "UTILITY",
@@ -27,7 +26,8 @@ ___INFO___
   "description": "Google Consent Mode v2 + TrustArc CMP. Fire on Consent Initialization to set defaults/restore consent, and on trustarc-consent-updated to sync in-session consent changes.",
   "containerContexts": [
     "WEB"
-  ]
+  ],
+  "securityGroups": []
 }
 
 
@@ -818,6 +818,10 @@ ___WEB_PERMISSIONS___
               {
                 "type": 1,
                 "string": "url_passthrough"
+              },
+              {
+                "type": 1,
+                "string": "developer_id.dNTIxZG"
               }
             ]
           }
