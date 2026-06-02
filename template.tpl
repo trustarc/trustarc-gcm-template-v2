@@ -352,6 +352,14 @@ ___TEMPLATE_PARAMETERS___
         ]
       },
       {
+        "type": "TEXT",
+        "name": "customCookie",
+        "displayName": "Custom Cookie Name Mapping",
+        "simpleValueType": true,
+        "help": "If your site uses a custom cookie name, enter it here. Otherwise, leave this field empty.",
+        "canBeEmptyString": true
+      },
+      {
         "type": "GROUP",
         "name": "advancedGroup",
         "displayName": "Advanced",
@@ -660,7 +668,8 @@ function buildConsentUpdate(getCategoryDecision) {
 }
 
 function applyConsentFromCookie() {
-  const cookieValues = getCookieValues('cmapi_cookie_privacy');
+  const customCookieName = data.customCookie;
+  const cookieValues = getCookieValues(typeof(customCookieName) !== 'undefined' && customCookieName !== null && customCookieName.length > 0 ? customCookieName : 'cmapi_cookie_privacy');
   if (!cookieValues || !cookieValues.length) return;
 
   const cookieVal = cookieValues[0];
@@ -1014,19 +1023,7 @@ ___WEB_PERMISSIONS___
           "key": "cookieAccess",
           "value": {
             "type": 1,
-            "string": "specific"
-          }
-        },
-        {
-          "key": "cookieNames",
-          "value": {
-            "type": 2,
-            "listItem": [
-              {
-                "type": 1,
-                "string": "cmapi_cookie_privacy"
-              }
-            ]
+            "string": "any"
           }
         }
       ]
@@ -1139,7 +1136,7 @@ scenarios:
     assertThat(capturedDefault.security_storage).isEqualTo('granted');
     assertThat(capturedDefault.wait_for_update).isEqualTo(500);
     assertThat(capturedDefault.region).isUndefined();
-    assertThat(gtagCalls).hasLength(2);
+    assertThat(gtagCalls).hasLength(1);
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnSuccess').wasCalled();
 - name: Regional overrides parse comma-separated regions
