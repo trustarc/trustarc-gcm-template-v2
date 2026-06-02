@@ -367,6 +367,78 @@ ___TEMPLATE_PARAMETERS___
         ]
       }
     ]
+  },
+  {
+    "type": "GROUP",
+    "name": "cmGroup",
+    "displayName": "Consent Manager Settings",
+    "groupStyle": "ZIPPY_CLOSED",
+    "subParams": [
+      {
+        "type": "CHECKBOX",
+        "name": "deployScript",
+        "checkboxText": "Deploy CMP Script using the Template",
+        "simpleValueType": true,
+        "help": "Check this option if you would like to use this template to deploy the CMP Script.",
+        "subParams": [
+          {
+            "type": "TEXT",
+            "name": "cmpID",
+            "displayName": "CMP ID",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "deployScript",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ],
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ]
+          },
+          {
+            "type": "TEXT",
+            "name": "addParams",
+            "displayName": "Additional Parameters",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "deployScript",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ]
+          },
+          {
+            "type": "SELECT",
+            "name": "cmpType",
+            "displayName": "CMP Version",
+            "macrosInSelect": false,
+            "selectItems": [
+              {
+                "value": "pro",
+                "displayValue": "CCM Pro"
+              },
+              {
+                "value": "adv",
+                "displayValue": "CCM Advanced"
+              }
+            ],
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "deployScript",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 ]
 
@@ -381,9 +453,14 @@ const gtagSet = require('gtagSet');
 const makeNumber = require('makeNumber');
 const makeString = require('makeString');
 const log = require('logToConsole');
+const copyFromWindow = require('copyFromWindow');
+const JSON = require('JSON');
+const queryPermission = require('queryPermission');
+const injectScript = require('injectScript');
 
 const EVENT_CONSENT_UPDATED = 'trustarc-consent-updated';
 const DEFAULT_WAIT_FOR_UPDATE = 500;
+const hostName = 'https://consent.trustarc.com';
 
 const VALID_SIGNALS = {
   'ad_storage': true,
@@ -395,8 +472,28 @@ const VALID_SIGNALS = {
   'security_storage': true
 };
 
+const CMPType = {
+    PRO: 'pro',
+    ADVANCED: 'adv'
+};
+
 const debug = !!data.debugLogging;
 const eventName = copyFromDataLayer('event');
+
+//Inject CMP Code
+debugLog("Deploy CMP Script: " + data.deployCmpScript);
+if (data.deployCmpScript) {
+  const cmID = data.cmpID;
+  const addParams = data.addParams;
+  const cmpType = data.cmpType;
+  const ccmScriptURL = getCCMScriptUrl(cmID, cmpType, addParams);
+  if (queryPermission('inject_script', hostName)){
+    debugLog('permission granted to load JS');
+    injectScript(ccmScriptURL, onScriptInjectSucess, onScriptInjectError);
+  } else {
+    data.gtmOnFailure();
+  }
+}
 
 if (eventName === EVENT_CONSENT_UPDATED) {
   // User changed preferences mid-session — apply from dataLayer.
@@ -413,6 +510,8 @@ if (eventName === EVENT_CONSENT_UPDATED) {
   applyConsentFromCookie();
 }
 
+checkDatalayerForDefaultConsent();
+
 data.gtmOnSuccess();
 
 // ---------------------------------------------------------------------------
@@ -421,6 +520,44 @@ function debugLog(message, extra) {
   if (debug) {
     message = "[TrustArc CMv2]: " + message;
     log(message, extra || '');
+  }
+}
+
+function getCCMScriptUrl(cmID, cmpType, addParams) {
+    if (cmpType === CMPType.PRO) return getCCMProScriptUrl(cmID, cmpType, addParams);
+
+    return getCCMAdvancedScriptUrl(cmID, cmpType, addParams);
+}
+
+function getCCMProScriptUrl(cmID, addParams) {
+    return hostName+"/v2/notice/" + cmID + addParams;
+}
+
+function getCCMAdvancedScriptUrl(cmID, addParams){
+    return hostName+"/notice?domain=" + cmID + addParams;
+}
+
+function onScriptInjectSucess(){ debugLog("Successfully injected the CCM Script"); data.gtmOnSuccess(); }
+function onScriptInjectError() { debugLog("Failed to injected the CCM Script"); data.gtmOnFailure(); }
+
+function checkDatalayerForDefaultConsent() {
+  if (!debug) {
+    // if debug is not enabled, no need to check for default consent
+    return;
+  }
+  const dataLayer = copyFromWindow('dataLayer');
+  for(var i = 0; i < dataLayer.length; i++) {
+    debugLog('data layer', JSON.stringify(dataLayer[i]));
+    if (dataLayer[i].length > 0) {
+      for (var j = 0; j < dataLayer[i].length; j++) {
+        if(dataLayer[i][j] == 'consent') {
+          return;
+        } else if (dataLayer[i][j] == 'event' || dataLayer[i][j] == 'config') {
+          debugLog("WARNING: Tags are firing before consent is initialized. Please ensure that the consent mode default is initialized before firing tags.");
+          return;
+        }
+      }
+    }
   }
 }
 
@@ -854,10 +991,6 @@ ___WEB_PERMISSIONS___
               },
               {
                 "type": 1,
-                "string": "consentModel"
-              },
-              {
-                "type": 1,
                 "string": "consent.*"
               }
             ]
@@ -915,6 +1048,42 @@ ___WEB_PERMISSIONS___
           "value": {
             "type": 1,
             "string": "debug"
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "access_globals",
+        "versionId": "1"
+      },
+      "param": []
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "inject_script",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "urls",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 1,
+                "string": "https://consent.trustarc.com/*"
+              }
+            ]
           }
         }
       ]
@@ -1334,6 +1503,6 @@ scenarios:
 
 ___NOTES___
 
-Created on 5/13/2026, 8:20:28 PM
+Created on 6/2/2026, 3:02:16 PM
 
 
