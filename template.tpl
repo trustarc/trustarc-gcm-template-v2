@@ -356,7 +356,7 @@ ___TEMPLATE_PARAMETERS___
         "name": "customCookie",
         "displayName": "Custom Cookie Name Mapping",
         "simpleValueType": true,
-        "help": "If your site uses a custom cookie name, enter it here. Otherwise, leave this field empty.",
+        "help": "If your site uses a custom cookie name, enter it here. Leave blank to use the default cookie name: cmapi_cookie_privacy",
         "canBeEmptyString": true
       },
       {
