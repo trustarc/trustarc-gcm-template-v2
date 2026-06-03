@@ -276,11 +276,27 @@ ___TEMPLATE_PARAMETERS___
         "simpleValueType": true
       },
       {
-        "type": "CHECKBOX",
+        "type": "SELECT",
         "name": "adsDataRedaction",
-        "checkboxText": "Enable ads_data_redaction",
+        "displayName": "Enable ads_data_redaction",
+        "macrosInSelect": false,
+        "selectItems": [
+          {
+            "value": true,
+            "displayValue": "True"
+          },
+          {
+            "value": false,
+            "displayValue": "False"
+          },
+          {
+            "value": "dynamic",
+            "displayValue": "Dynamic (match ad_storage)"
+          }
+        ],
+        "simpleValueType": true,
         "help": "When ad_storage is denied, redact ad click IDs and IP addresses sent to Google Ads (sends cookieless pings only).",
-        "simpleValueType": true
+        "defaultValue": false
       }
     ]
   },
@@ -625,8 +641,12 @@ function applyGtagSetFlags() {
     'developer_id.dNTIxZG': true
   };
 
-  if (data.adsDataRedaction) {
-    flags.ads_data_redaction = true;
+  if (data.adsDataRedaction === 'dynamic') {
+    const adStorageGranted = (data.globalAdStorage || 'denied') === 'granted';
+
+    flags.ads_data_redaction = !adStorageGranted;
+  } else {
+    flags.ads_data_redaction = data.adsDataRedaction;
   }
 
   if (data.urlPassthrough) {
@@ -634,6 +654,12 @@ function applyGtagSetFlags() {
   }
 
   gtagSet(flags);
+}
+
+function updateAdsDataRedaction(adStorageValue) {
+  gtagSet({
+    ads_data_redaction: adStorageValue !== 'granted'
+  });
 }
 
 function buildConsentUpdate(getCategoryDecision) {
@@ -674,8 +700,7 @@ function buildConsentUpdate(getCategoryDecision) {
 
 function applyConsentFromCookie() {
   const customCookieName = data.customCookie;
-  const cookieName = typeof(customCookieName) !== 'undefined' && customCookieName !== null && customCookieName.length > 0 ? customCookieName : 'cmapi_cookie_privacy';
-  const cookieValues = getCookieValues(cookieName);
+  const cookieValues = getCookieValues(typeof(customCookieName) !== 'undefined' && customCookieName !== null && customCookieName.length > 0 ? customCookieName : 'cmapi_cookie_privacy');
   if (!cookieValues || !cookieValues.length) return;
 
   const cookieVal = cookieValues[0];
@@ -687,6 +712,10 @@ function applyConsentFromCookie() {
   if (update) {
     debugLog('early updateConsentState from cookie', update);
     updateConsentState(update);
+
+    if (update.ad_storage) {
+      updateAdsDataRedaction(update.ad_storage);
+    }
   }
 }
 
@@ -698,6 +727,9 @@ function applyConsentUpdate() {
   if (update) {
     debugLog('updateConsentState', update);
     updateConsentState(update);
+    if (update.ad_storage) {
+      updateAdsDataRedaction(update.ad_storage);
+    }
   }
 }
 
