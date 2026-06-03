@@ -383,6 +383,11 @@ ___TEMPLATE_PARAMETERS___
     "groupStyle": "ZIPPY_CLOSED",
     "subParams": [
       {
+        "type": "LABEL",
+        "name": "cmpWarning",
+        "displayName": "Warning: The CMP script is loaded asynchronously. Tags may fire before consent information is available, which can lead to incorrect consent behavior. To avoid consent-related race conditions, configure tags to fire only after consent has been initialized."
+      },
+      {
         "type": "CHECKBOX",
         "name": "deployScript",
         "checkboxText": "Deploy CMP Script using the Template",
