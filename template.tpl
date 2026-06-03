@@ -674,7 +674,8 @@ function buildConsentUpdate(getCategoryDecision) {
 
 function applyConsentFromCookie() {
   const customCookieName = data.customCookie;
-  const cookieValues = getCookieValues(typeof(customCookieName) !== 'undefined' && customCookieName !== null && customCookieName.length > 0 ? customCookieName : 'cmapi_cookie_privacy');
+  const cookieName = typeof(customCookieName) !== 'undefined' && customCookieName !== null && customCookieName.length > 0 ? customCookieName : 'cmapi_cookie_privacy';
+  const cookieValues = getCookieValues(cookieName);
   if (!cookieValues || !cookieValues.length) return;
 
   const cookieVal = cookieValues[0];
