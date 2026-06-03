@@ -713,7 +713,7 @@ function applyConsentFromCookie() {
     debugLog('early updateConsentState from cookie', update);
     updateConsentState(update);
 
-    if (update.ad_storage) {
+    if (data.adsDataRedaction === 'dynamic' && update.ad_storage) {
       updateAdsDataRedaction(update.ad_storage);
     }
   }
@@ -727,11 +727,12 @@ function applyConsentUpdate() {
   if (update) {
     debugLog('updateConsentState', update);
     updateConsentState(update);
-    if (update.ad_storage) {
+    if (data.adsDataRedaction === 'dynamic' && update.ad_storage) {
       updateAdsDataRedaction(update.ad_storage);
     }
   }
 }
+
 
 ___WEB_PERMISSIONS___
 
