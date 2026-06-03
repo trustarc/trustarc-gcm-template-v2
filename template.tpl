@@ -354,9 +354,9 @@ ___TEMPLATE_PARAMETERS___
       {
         "type": "TEXT",
         "name": "customCookie",
-        "displayName": "Custom Cookie Name Mapping",
+        "displayName": "Consent Preference Cookie Name",
         "simpleValueType": true,
-        "help": "If your site uses a custom cookie name, enter it here. Leave blank to use the default cookie name: cmapi_cookie_privacy",
+        "help": "The name of the TrustArc cookie that stores user consent preferences. Only change this if your TrustArc implementation uses a custom cookie name. Leave blank to use the TrustArc default (cmapi_cookie_privacy).",
         "canBeEmptyString": true
       },
       {
