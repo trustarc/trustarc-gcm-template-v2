@@ -1,6 +1,8 @@
 homepage: "https://www.trustarc.com"
 documentation: "https://trustarchelp.zendesk.com/hc/en-us/sections/37935816148627-Google-Consent-Mode-Implementation"
 versions:
+  - sha: cd9a3b44610853ce05cd173f3db5f13ad16e0be4
+    changeNotes: fix inject script bugs
   - sha: 4bd89dd0078a01ad1fc273e66bd4a2e8a627a81b
     changeNotes: add CCM script injection, add dynamic ads_data_redaction support, add custom cookie name mapping
   - sha: 1fd1fd909b5b2f91ac2eae82f3947559efe3a008
