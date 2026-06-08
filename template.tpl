@@ -510,8 +510,8 @@ const debug = !!data.debugLogging;
 const eventName = copyFromDataLayer('event');
 
 //Inject CMP Code
-debugLog("Deploy CMP Script: " + data.deployCmpScript);
-if (data.deployCmpScript) {
+debugLog("Deploy CMP Script: " + data.deployScript);
+if (data.deployScript) {
   const cmID = data.cmpID;
   const addParams = data.addParams;
   const cmpType = data.cmpType;
@@ -553,9 +553,9 @@ function debugLog(message, extra) {
 }
 
 function getCCMScriptUrl(cmID, cmpType, addParams) {
-    if (cmpType === CMPType.PRO) return getCCMProScriptUrl(cmID, cmpType, addParams);
+    if (cmpType === CMPType.PRO) return getCCMProScriptUrl(cmID, addParams);
 
-    return getCCMAdvancedScriptUrl(cmID, cmpType, addParams);
+    return getCCMAdvancedScriptUrl(cmID, addParams);
 }
 
 function getCCMProScriptUrl(cmID, addParams) {
@@ -1099,7 +1099,58 @@ ___WEB_PERMISSIONS___
         "publicId": "access_globals",
         "versionId": "1"
       },
-      "param": []
+      "param": [
+        {
+          "key": "keys",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "dataLayer"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
     },
     "isRequired": true
   },
