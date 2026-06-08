@@ -276,11 +276,27 @@ ___TEMPLATE_PARAMETERS___
         "simpleValueType": true
       },
       {
-        "type": "CHECKBOX",
+        "type": "SELECT",
         "name": "adsDataRedaction",
-        "checkboxText": "Enable ads_data_redaction",
+        "displayName": "Enable ads_data_redaction",
+        "macrosInSelect": false,
+        "selectItems": [
+          {
+            "value": true,
+            "displayValue": "True"
+          },
+          {
+            "value": false,
+            "displayValue": "False"
+          },
+          {
+            "value": "dynamic",
+            "displayValue": "Dynamic (match ad_storage)"
+          }
+        ],
+        "simpleValueType": true,
         "help": "When ad_storage is denied, redact ad click IDs and IP addresses sent to Google Ads (sends cookieless pings only).",
-        "simpleValueType": true
+        "defaultValue": false
       }
     ]
   },
@@ -352,6 +368,14 @@ ___TEMPLATE_PARAMETERS___
         ]
       },
       {
+        "type": "TEXT",
+        "name": "customCookie",
+        "displayName": "Consent Preference Cookie Name",
+        "simpleValueType": true,
+        "help": "The name of the TrustArc cookie that stores user consent preferences. Only change this if your TrustArc implementation uses a custom cookie name. Leave blank to use the TrustArc default (cmapi_cookie_privacy).",
+        "canBeEmptyString": true
+      },
+      {
         "type": "GROUP",
         "name": "advancedGroup",
         "displayName": "Advanced",
@@ -363,6 +387,83 @@ ___TEMPLATE_PARAMETERS___
             "checkboxText": "Enable debug logging",
             "help": "Logs default-state and consent-update payloads to the console. Useful in GTM Preview mode.",
             "simpleValueType": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "GROUP",
+    "name": "cmGroup",
+    "displayName": "Consent Manager Settings",
+    "groupStyle": "ZIPPY_CLOSED",
+    "subParams": [
+      {
+        "type": "LABEL",
+        "name": "cmpWarning",
+        "displayName": "Warning: The CMP script is loaded asynchronously. Tags may fire before consent information is available, which can lead to incorrect consent behavior. To avoid consent-related race conditions, configure tags to fire only after consent has been initialized."
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "deployScript",
+        "checkboxText": "Deploy CMP Script using the Template",
+        "simpleValueType": true,
+        "help": "Check this option if you would like to use this template to deploy the CMP Script.",
+        "subParams": [
+          {
+            "type": "TEXT",
+            "name": "cmpID",
+            "displayName": "CMP ID",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "deployScript",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ],
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ]
+          },
+          {
+            "type": "TEXT",
+            "name": "addParams",
+            "displayName": "Additional Parameters",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "deployScript",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ]
+          },
+          {
+            "type": "SELECT",
+            "name": "cmpType",
+            "displayName": "CMP Version",
+            "macrosInSelect": false,
+            "selectItems": [
+              {
+                "value": "pro",
+                "displayValue": "CCM Pro"
+              },
+              {
+                "value": "adv",
+                "displayValue": "CCM Advanced"
+              }
+            ],
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "deployScript",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ]
           }
         ]
       }
@@ -381,9 +482,14 @@ const gtagSet = require('gtagSet');
 const makeNumber = require('makeNumber');
 const makeString = require('makeString');
 const log = require('logToConsole');
+const copyFromWindow = require('copyFromWindow');
+const JSON = require('JSON');
+const queryPermission = require('queryPermission');
+const injectScript = require('injectScript');
 
 const EVENT_CONSENT_UPDATED = 'trustarc-consent-updated';
 const DEFAULT_WAIT_FOR_UPDATE = 500;
+const hostName = 'https://consent.trustarc.com';
 
 const VALID_SIGNALS = {
   'ad_storage': true,
@@ -395,8 +501,28 @@ const VALID_SIGNALS = {
   'security_storage': true
 };
 
+const CMPType = {
+    PRO: 'pro',
+    ADVANCED: 'adv'
+};
+
 const debug = !!data.debugLogging;
 const eventName = copyFromDataLayer('event');
+
+//Inject CMP Code
+debugLog("Deploy CMP Script: " + data.deployCmpScript);
+if (data.deployCmpScript) {
+  const cmID = data.cmpID;
+  const addParams = data.addParams;
+  const cmpType = data.cmpType;
+  const ccmScriptURL = getCCMScriptUrl(cmID, cmpType, addParams);
+  if (queryPermission('inject_script', hostName)){
+    debugLog('permission granted to load JS');
+    injectScript(ccmScriptURL, onScriptInjectSucess, onScriptInjectError);
+  } else {
+    data.gtmOnFailure();
+  }
+}
 
 if (eventName === EVENT_CONSENT_UPDATED) {
   // User changed preferences mid-session — apply from dataLayer.
@@ -413,9 +539,56 @@ if (eventName === EVENT_CONSENT_UPDATED) {
   applyConsentFromCookie();
 }
 
+checkDatalayerForDefaultConsent();
+
 data.gtmOnSuccess();
 
 // ---------------------------------------------------------------------------
+
+function debugLog(message, extra) {
+  if (debug) {
+    message = "[TrustArc CMv2]: " + message;
+    log(message, extra || '');
+  }
+}
+
+function getCCMScriptUrl(cmID, cmpType, addParams) {
+    if (cmpType === CMPType.PRO) return getCCMProScriptUrl(cmID, cmpType, addParams);
+
+    return getCCMAdvancedScriptUrl(cmID, cmpType, addParams);
+}
+
+function getCCMProScriptUrl(cmID, addParams) {
+    return hostName+"/v2/notice/" + cmID + addParams;
+}
+
+function getCCMAdvancedScriptUrl(cmID, addParams){
+    return hostName+"/notice?domain=" + cmID + addParams;
+}
+
+function onScriptInjectSucess(){ debugLog("Successfully injected the CCM Script"); data.gtmOnSuccess(); }
+function onScriptInjectError() { debugLog("Failed to injected the CCM Script"); data.gtmOnFailure(); }
+
+function checkDatalayerForDefaultConsent() {
+  if (!debug) {
+    // if debug is not enabled, no need to check for default consent
+    return;
+  }
+  const dataLayer = copyFromWindow('dataLayer');
+  for(var i = 0; i < dataLayer.length; i++) {
+    debugLog('data layer', JSON.stringify(dataLayer[i]));
+    if (dataLayer[i].length > 0) {
+      for (var j = 0; j < dataLayer[i].length; j++) {
+        if(dataLayer[i][j] == 'consent') {
+          return;
+        } else if (dataLayer[i][j] == 'event' || dataLayer[i][j] == 'config') {
+          debugLog("WARNING: Tags are firing before consent is initialized. Please ensure that the consent mode default is initialized before firing tags.");
+          return;
+        }
+      }
+    }
+  }
+}
 
 function applyDefaults() {
   const waitForUpdate = makeNumber(data.waitForUpdate) || DEFAULT_WAIT_FOR_UPDATE;
@@ -433,7 +606,7 @@ function applyDefaults() {
     'security_storage': data.globalSecurityStorage || 'granted'
   };
 
-  if (debug) log('TrustArc CMv2: global default', globalConsent);
+  debugLog('global default', globalConsent);
   setDefaultConsentState(globalConsent);
 
   // 2. Regional overrides — each row sets one signal for one region scope.
@@ -457,64 +630,39 @@ function applyDefaults() {
       consent.region = cleaned;
     }
 
-    if (debug) log('TrustArc CMv2: regional override', consent);
+    debugLog('regional override', consent);
     setDefaultConsentState(consent);
   }
   return true;
 }
 
 function applyGtagSetFlags() {
-  gtagSet({'developer_id.dNTIxZG': true});
-  if (data.adsDataRedaction) {
-    gtagSet({ 'ads_data_redaction': true });
+  const flags = {
+    'developer_id.dNTIxZG': true
+  };
+
+  if (data.adsDataRedaction === 'dynamic') {
+    const adStorageGranted = (data.globalAdStorage || 'denied') === 'granted';
+
+    flags.ads_data_redaction = !adStorageGranted;
+  } else {
+    flags.ads_data_redaction = data.adsDataRedaction;
   }
+
   if (data.urlPassthrough) {
-    gtagSet({ 'url_passthrough': true });
+    flags.url_passthrough = true;
   }
+
+  gtagSet(flags);
 }
 
-function applyConsentFromCookie() {
-  var cookieValues = getCookieValues('cmapi_cookie_privacy');
-  if (!cookieValues || cookieValues.length === 0) return;
-
-  var cookieVal = cookieValues[0];
-  if (debug) log('TrustArc CMv2: found cmapi_cookie_privacy cookie, applying early update:', cookieVal);
-
-  var rows = data.categoryMapping || [];
-  var update = {};
-  var hasUpdate = false;
-
-  for (var i = 0; i < rows.length; i++) {
-    var row = rows[i];
-    var signal = row.signal;
-    var categoryId = row.categoryId;
-
-    if (!signal || !VALID_SIGNALS[signal]) continue;
-    if (!categoryId) continue;
-
-    if (categoryId === 'always') {
-      update[signal] = 'granted';
-      hasUpdate = true;
-      continue;
-    }
-
-    var target = makeString(categoryId);
-    if (cookieVal.indexOf(target) !== -1) {
-      update[signal] = 'granted';
-    } else {
-      update[signal] = 'denied';
-    }
-    hasUpdate = true;
-  }
-
-  if (hasUpdate) {
-    if (debug) log('TrustArc CMv2: early updateConsentState from cookie', update);
-    updateConsentState(update);
-  }
+function updateAdsDataRedaction(adStorageValue) {
+  gtagSet({
+    ads_data_redaction: adStorageValue !== 'granted'
+  });
 }
 
-function applyConsentUpdate() {
-  const consentModel = copyFromDataLayer('consentModel');
+function buildConsentUpdate(getCategoryDecision) {
   const rows = data.categoryMapping || [];
   const update = {};
   let hasUpdate = false;
@@ -533,22 +681,55 @@ function applyConsentUpdate() {
       continue;
     }
 
-    const categoryValue = copyFromDataLayer('consent.ta_category_' + categoryId);
+    const decision = getCategoryDecision(categoryId);
 
-    if (categoryValue === true) {
+    if (decision === true) {
       update[signal] = 'granted';
       hasUpdate = true;
-    } else if (categoryValue === false) {
+    } else if (decision === false) {
       update[signal] = 'denied';
       hasUpdate = true;
     }
     // undefined → no user decision yet; skip this signal and let the
-    // default consent state stand until the user makes a choice.
+    // default consent state stand until the user makes a choice
+    // only for applyConsentUpdate
   }
 
-  if (hasUpdate) {
-    if (debug) log('TrustArc CMv2: updateConsentState', update);
+  return hasUpdate ? update : null;
+}
+
+function applyConsentFromCookie() {
+  const customCookieName = data.customCookie;
+  const cookieValues = getCookieValues(typeof(customCookieName) !== 'undefined' && customCookieName !== null && customCookieName.length > 0 ? customCookieName : 'cmapi_cookie_privacy');
+  if (!cookieValues || !cookieValues.length) return;
+
+  const cookieVal = cookieValues[0];
+
+  const update = buildConsentUpdate(function(categoryId) {
+    return cookieVal.indexOf(makeString(categoryId)) !== -1;
+  });
+
+  if (update) {
+    debugLog('early updateConsentState from cookie', update);
     updateConsentState(update);
+
+    if (data.adsDataRedaction === 'dynamic' && update.ad_storage) {
+      updateAdsDataRedaction(update.ad_storage);
+    }
+  }
+}
+
+function applyConsentUpdate() {
+  const update = buildConsentUpdate(function(categoryId) {
+    return copyFromDataLayer('consent.ta_category_' + categoryId);
+  });
+
+  if (update) {
+    debugLog('updateConsentState', update);
+    updateConsentState(update);
+    if (data.adsDataRedaction === 'dynamic' && update.ad_storage) {
+      updateAdsDataRedaction(update.ad_storage);
+    }
   }
 }
 
@@ -858,10 +1039,6 @@ ___WEB_PERMISSIONS___
               },
               {
                 "type": 1,
-                "string": "consentModel"
-              },
-              {
-                "type": 1,
                 "string": "consent.*"
               }
             ]
@@ -885,19 +1062,7 @@ ___WEB_PERMISSIONS___
           "key": "cookieAccess",
           "value": {
             "type": 1,
-            "string": "specific"
-          }
-        },
-        {
-          "key": "cookieNames",
-          "value": {
-            "type": 2,
-            "listItem": [
-              {
-                "type": 1,
-                "string": "cmapi_cookie_privacy"
-              }
-            ]
+            "string": "any"
           }
         }
       ]
@@ -919,6 +1084,42 @@ ___WEB_PERMISSIONS___
           "value": {
             "type": 1,
             "string": "debug"
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "access_globals",
+        "versionId": "1"
+      },
+      "param": []
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "inject_script",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "urls",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 1,
+                "string": "https://consent.trustarc.com/*"
+              }
+            ]
           }
         }
       ]
@@ -974,7 +1175,7 @@ scenarios:
     assertThat(capturedDefault.security_storage).isEqualTo('granted');
     assertThat(capturedDefault.wait_for_update).isEqualTo(500);
     assertThat(capturedDefault.region).isUndefined();
-    assertThat(gtagCalls).hasLength(2);
+    assertThat(gtagCalls).hasLength(1);
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnSuccess').wasCalled();
 - name: Regional overrides parse comma-separated regions
@@ -1338,6 +1539,6 @@ scenarios:
 
 ___NOTES___
 
-Created on 5/13/2026, 8:20:28 PM
+Created on 6/2/2026, 3:02:16 PM
 
 
