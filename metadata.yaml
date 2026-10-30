@@ -1,6 +1,8 @@
 homepage: "https://www.trustarc.com"
 documentation: "https://trustarchelp.zendesk.com/hc/en-us/sections/37935816148627-Google-Consent-Mode-Implementation"
 versions:
+  - sha: eb80b29022386c497b0b090ec394955e945a0dd6
+    changeNotes: fix version sha
   - sha: 1b4d4b5d618416c67040f9e6c41d0ca732aeecf8
     changeNotes: add missing Terms of Service section
   - sha: d0e99c361bb98aac1135432095a5c95f1102f483
