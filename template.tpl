@@ -513,7 +513,7 @@ const eventName = copyFromDataLayer('event');
 debugLog("Deploy CMP Script: " + data.deployScript);
 if (data.deployScript) {
   const cmID = data.cmpID;
-  const addParams = data.addParams;
+  const addParams = data.addParams || '';
   const cmpType = data.cmpType;
   const ccmScriptURL = getCCMScriptUrl(cmID, cmpType, addParams);
   if (queryPermission('inject_script', hostName)){
@@ -1586,6 +1586,169 @@ scenarios:
     assertApi('setDefaultConsentState').wasCalled();
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnSuccess').wasCalled();
+- name: CCM Advanced script URL omits addParams when undefined
+  code: |-
+    const mockData = {
+      deployScript: true,
+      cmpID: 'trustarc.com',
+      cmpType: 'adv',
+      globalAdStorage: 'denied',
+      globalAdUserData: 'denied',
+      globalAdPersonalization: 'denied',
+      globalAnalyticsStorage: 'denied',
+      globalFunctionalityStorage: 'denied',
+      globalPersonalizationStorage: 'denied',
+      globalSecurityStorage: 'granted',
+      waitForUpdate: 500,
+      categoryMapping: []
+    };
+
+    let injectedUrl;
+    mock('copyFromDataLayer', function(key) {
+      if (key === 'event') return 'gtm.init_consent';
+      return undefined;
+    });
+    mock('getCookieValues', function() { return []; });
+    mock('setDefaultConsentState', function() {});
+    mock('updateConsentState', function() {});
+    mock('queryPermission', function() { return true; });
+    mock('injectScript', function(url, onSuccess) { injectedUrl = url; onSuccess(); });
+
+    runCode(mockData);
+
+    assertApi('injectScript').wasCalled();
+    assertThat(injectedUrl).isEqualTo('https://consent.trustarc.com/notice?domain=trustarc.com');
+- name: CCM Advanced script URL omits addParams when blank
+  code: |-
+    const mockData = {
+      deployScript: true,
+      cmpID: 'trustarc.com',
+      cmpType: 'adv',
+      addParams: '',
+      globalAdStorage: 'denied',
+      globalAdUserData: 'denied',
+      globalAdPersonalization: 'denied',
+      globalAnalyticsStorage: 'denied',
+      globalFunctionalityStorage: 'denied',
+      globalPersonalizationStorage: 'denied',
+      globalSecurityStorage: 'granted',
+      waitForUpdate: 500,
+      categoryMapping: []
+    };
+
+    let injectedUrl;
+    mock('copyFromDataLayer', function(key) {
+      if (key === 'event') return 'gtm.init_consent';
+      return undefined;
+    });
+    mock('getCookieValues', function() { return []; });
+    mock('setDefaultConsentState', function() {});
+    mock('updateConsentState', function() {});
+    mock('queryPermission', function() { return true; });
+    mock('injectScript', function(url, onSuccess) { injectedUrl = url; onSuccess(); });
+
+    runCode(mockData);
+
+    assertApi('injectScript').wasCalled();
+    assertThat(injectedUrl).isEqualTo('https://consent.trustarc.com/notice?domain=trustarc.com');
+- name: CCM Pro script URL omits addParams when undefined
+  code: |-
+    const mockData = {
+      deployScript: true,
+      cmpID: 'trustarc.com',
+      cmpType: 'pro',
+      globalAdStorage: 'denied',
+      globalAdUserData: 'denied',
+      globalAdPersonalization: 'denied',
+      globalAnalyticsStorage: 'denied',
+      globalFunctionalityStorage: 'denied',
+      globalPersonalizationStorage: 'denied',
+      globalSecurityStorage: 'granted',
+      waitForUpdate: 500,
+      categoryMapping: []
+    };
+
+    let injectedUrl;
+    mock('copyFromDataLayer', function(key) {
+      if (key === 'event') return 'gtm.init_consent';
+      return undefined;
+    });
+    mock('getCookieValues', function() { return []; });
+    mock('setDefaultConsentState', function() {});
+    mock('updateConsentState', function() {});
+    mock('queryPermission', function() { return true; });
+    mock('injectScript', function(url, onSuccess) { injectedUrl = url; onSuccess(); });
+
+    runCode(mockData);
+
+    assertApi('injectScript').wasCalled();
+    assertThat(injectedUrl).isEqualTo('https://consent.trustarc.com/v2/notice/trustarc.com');
+- name: CCM Advanced script URL appends addParams when set
+  code: |-
+    const mockData = {
+      deployScript: true,
+      cmpID: 'trustarc.com',
+      cmpType: 'adv',
+      addParams: '&c=teconsent&js=nj',
+      globalAdStorage: 'denied',
+      globalAdUserData: 'denied',
+      globalAdPersonalization: 'denied',
+      globalAnalyticsStorage: 'denied',
+      globalFunctionalityStorage: 'denied',
+      globalPersonalizationStorage: 'denied',
+      globalSecurityStorage: 'granted',
+      waitForUpdate: 500,
+      categoryMapping: []
+    };
+
+    let injectedUrl;
+    mock('copyFromDataLayer', function(key) {
+      if (key === 'event') return 'gtm.init_consent';
+      return undefined;
+    });
+    mock('getCookieValues', function() { return []; });
+    mock('setDefaultConsentState', function() {});
+    mock('updateConsentState', function() {});
+    mock('queryPermission', function() { return true; });
+    mock('injectScript', function(url, onSuccess) { injectedUrl = url; onSuccess(); });
+
+    runCode(mockData);
+
+    assertApi('injectScript').wasCalled();
+    assertThat(injectedUrl).isEqualTo('https://consent.trustarc.com/notice?domain=trustarc.com&c=teconsent&js=nj');
+- name: CCM Pro script URL appends addParams when set
+  code: |-
+    const mockData = {
+      deployScript: true,
+      cmpID: 'trustarc.com',
+      cmpType: 'pro',
+      addParams: '?c=teconsent',
+      globalAdStorage: 'denied',
+      globalAdUserData: 'denied',
+      globalAdPersonalization: 'denied',
+      globalAnalyticsStorage: 'denied',
+      globalFunctionalityStorage: 'denied',
+      globalPersonalizationStorage: 'denied',
+      globalSecurityStorage: 'granted',
+      waitForUpdate: 500,
+      categoryMapping: []
+    };
+
+    let injectedUrl;
+    mock('copyFromDataLayer', function(key) {
+      if (key === 'event') return 'gtm.init_consent';
+      return undefined;
+    });
+    mock('getCookieValues', function() { return []; });
+    mock('setDefaultConsentState', function() {});
+    mock('updateConsentState', function() {});
+    mock('queryPermission', function() { return true; });
+    mock('injectScript', function(url, onSuccess) { injectedUrl = url; onSuccess(); });
+
+    runCode(mockData);
+
+    assertApi('injectScript').wasCalled();
+    assertThat(injectedUrl).isEqualTo('https://consent.trustarc.com/v2/notice/trustarc.com?c=teconsent');
 
 
 ___NOTES___
